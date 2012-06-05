@@ -1,8 +1,4 @@
-
 #include <stdio.h>
-#include <sys/types.h>         
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <unistd.h>
 
 #define SOCK_PATH "/home/nmathew/client"
@@ -10,8 +6,11 @@
 #define CLIENT_SEND_RETRY 5
 #include "client.h"
 
+unsigned int client::instance_cnt = 0;
+
 client::client(){
 	char name[30];
+
 	instance_cnt++;	
 	socketfd = socket(AF_UNIX, SOCK_STREAM, 0);
 	memset(&instanceaddr, 0, sizeof(struct sockaddr_un));
@@ -45,3 +44,4 @@ int client::recv(void *buffer, unsigned int &size){
 	int recvcount;
 	size = read(socketfd, buffer, size);
 }
+
