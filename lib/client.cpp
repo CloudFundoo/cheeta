@@ -15,8 +15,9 @@ client::client(){
 	socketfd = socket(AF_UNIX, SOCK_STREAM, 0);
 	memset(&instanceaddr, 0, sizeof(struct sockaddr_un));
 	instanceaddr.sun_family = AF_UNIX;
+	instanceaddr.sun_path[0] = '\0';
 	sprintf(name, "%s%d", SOCK_PATH, instance_cnt);
-	strncpy(instanceaddr.sun_path, name, 25);
+	strncpy(&(instanceaddr.sun_path[1]), name, 25);
 	bind(socketfd, (struct sockaddr *)&instanceaddr, sizeof(struct sockaddr_un));		
 }
 

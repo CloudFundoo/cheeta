@@ -11,7 +11,8 @@ server::server(){
         socketfd = socket(AF_UNIX, SOCK_STREAM, 0);
         memset(&instanceaddr, 0, sizeof(struct sockaddr_un));
         instanceaddr.sun_family = AF_UNIX;
-        strncpy(instanceaddr.sun_path, SERVER_ADDR, 25);
+        instanceaddr.sun_path[0] = '\0';
+        strncpy(&(instanceaddr.sun_path[1]), SERVER_ADDR, 25);
       	bind(socketfd, (struct sockaddr *)&instanceaddr, sizeof(struct sockaddr_un));
 	listen(socketfd, 16);
 }
