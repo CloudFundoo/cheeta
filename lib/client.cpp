@@ -13,22 +13,26 @@ client::client(){
 
 	instance_cnt++;	
 	socketfd = socket(AF_UNIX, SOCK_STREAM, 0);
+#if 0
 	memset(&instanceaddr, 0, sizeof(struct sockaddr_un));
 	instanceaddr.sun_family = AF_UNIX;
-	instanceaddr.sun_path[0] = '\0';
+	instanceaddr.sun_path[0] = 0;
 	sprintf(name, "%s%d", SOCK_PATH, instance_cnt);
 	strncpy(&(instanceaddr.sun_path[1]), name, 25);
 	bind(socketfd, (struct sockaddr *)&instanceaddr, sizeof(struct sockaddr_un));		
+#endif
 }
 
 client::~client(){
+	remove("/home/nmathew/client1");
 	close(socketfd);
 }
 
 int client::connect(){
 	remoteaddr.sun_family = AF_UNIX;
-	strncpy(remoteaddr.sun_path, SERVER_ADDR, 25);
-	::connect(socketfd, (struct sockaddr *)&remoteaddr, sizeof(struct sockaddr_un));			
+	remoteaddr.sun_path[0] = 0;
+	strncpy(&(remoteaddr.sun_path[1]), SERVER_ADDR, 25);
+	return ::connect(socketfd, (struct sockaddr *)&remoteaddr, sizeof(struct sockaddr_un));			
 }
 
 int client::send(void *buffer, unsigned int size){

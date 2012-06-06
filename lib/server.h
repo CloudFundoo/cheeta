@@ -12,6 +12,7 @@ public:
 	int waitforclient();
 private:
         int socketfd;
+        int rsocketfd;
         struct sockaddr_un instanceaddr;
         struct sockaddr_un remoteaddr;
 };
