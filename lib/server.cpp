@@ -21,7 +21,6 @@ server::server(){
 }
 
 server::~server(){
-	unlink("/home/nmathew/server");
 	close(socketfd);
 }
 
@@ -43,6 +42,5 @@ int server::recv(void *buffer, unsigned int &size){
 int server::waitforclient(){
 	int rsocketaddrsize;
 	rsocketfd = accept(socketfd, (struct sockaddr *)&remoteaddr, (socklen_t *)&rsocketaddrsize);
-	printf("Remote Socket%d\n", rsocketfd);
 	return 0;
 }

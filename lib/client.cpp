@@ -24,7 +24,6 @@ client::client(){
 }
 
 client::~client(){
-	remove("/home/nmathew/client1");
 	close(socketfd);
 }
 

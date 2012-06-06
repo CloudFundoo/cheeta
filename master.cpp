@@ -5,7 +5,7 @@ int main(void)
 {
 	class server *pserver = new server();
 	char recvbuffer[100];
-	unsigned int recvlength = 0;
+	unsigned int recvlength = 25;
 
 	if(!(pserver->waitforclient()))
 	{

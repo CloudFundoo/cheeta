@@ -12,6 +12,7 @@ int main(void)
 	{
 		pclient->send((void *)sendbuffer, strlen(sendbuffer));
 		pclient->recv((void *)recvbuffer, recvsize);
+		printf("I got %s\n", recvbuffer);
 	}
 	else {
 		printf("client::error in connect\n");
