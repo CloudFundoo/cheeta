@@ -6,9 +6,10 @@
 #define SERVER_SEND_RETRY 5
 #include "server.h"
 
+
 server::server(){
         char name[30];
-        socketfd = socket(AF_UNIX, SOCK_STREAM, 0);
+        socketfd = socket(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK, 0);
 	if(socketfd<0)
 		printf("Error on socket create\n");
 		
@@ -17,7 +18,7 @@ server::server(){
         instanceaddr.sun_path[0] = 0;
         strncpy(&(instanceaddr.sun_path[1]), SERVER_ADDR, 25);
       	bind(socketfd, (struct sockaddr *)&instanceaddr, sizeof(struct sockaddr_un));
-	listen(socketfd, 16);
+	listen(socketfd, SOMAXCONN);
 }
 
 server::~server(){
@@ -41,6 +42,25 @@ int server::recv(void *buffer, unsigned int &size){
 
 int server::waitforclient(){
 	int rsocketaddrsize;
-	rsocketfd = accept(socketfd, (struct sockaddr *)&remoteaddr, (socklen_t *)&rsocketaddrsize);
+	int fdmax;
+	fd_set readfdset;
+	fd_set masterset;
+	FD_ZERO(&readfdset);
+	FD_ZERO(&masterset);
+	FD_SET(socketfd, &masterset);
+	fdmax = socketfd;
+	readfdset = masterset;
+	if(select(fdmax+1, &readfdset, NULL, NULL, NULL))
+	{
+		int i = 0;
+		for(; i <= fdmax; i++)
+			if(FD_ISSET(i, &readfdset))
+				if(i = socketfd)
+				{
+					rsocketfd = accept(socketfd, (struct sockaddr *)&remoteaddr, (socklen_t *)&rsocketaddrsize);
+					break;
+				}
+	}
+				
 	return 0;
 }
