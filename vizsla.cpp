@@ -25,17 +25,32 @@ int main(void)
 		{	
 			if(eventbuffer[i].out_event & CH_EV_READ)  
 			{	
-				if(!accepted)
-					if(eventbuffer[i].data.fd == perser->socketfd)
- 
+				if(eventbuffer[i].data.fd == pserser->socketfd)
+				{
+					int newfd;
+
+					if((newfd =	accept(pserver->socketfd, NULL, NULL)) > 0)
+					{
+						struct eventfd newevent2add;
+
+						newevent2add.events = CH_EV_READ|CH_EV_WRITE;
+						newevent2add.data.fd = newfd;
+						cheeta_add_eventfd(handle, &newevent2add, 0);
+						handle->sessions[newfd-4] = newfd;
+					}
+				}
+				else {
+					handle->sessions[eventbuffer[i].data.fd-4].responsesize = 
+					read(eventbuffer[i].data.fd, handle->sessions[eventbuffer[i].data.fd-4], 4092);
+					vizsla_processs_http(handle->sessions[eventbuffer[i].data.fd-4]);	
+				}
 			}	
 			else if(eventbuffer[i].out_event &CH_EV_WRITE)
 			{
-				
+						
 			}
 			i--;			
 		}
 	}
-
 	return 0;
 }
