@@ -46,8 +46,14 @@ int main(void)
 				}
 			}	
 			else if(eventbuffer[i].out_event &CH_EV_WRITE)
-			{
-						
+			{	
+				if(handle->sessions[eventbuffer[i].data.fd-4].ready4write)
+				{
+					int writecount = 0;
+					
+					writecount -= write(eventbuffer[i].data.fd, handle->sessions[eventbuffer[i].data.fd-4], handle->sessions[eventbuffer[i].data.fd-4].writesize;
+					handle->sessions[eventbuffer[i].data.fd-4].writesize -= writecount;	
+				}
 			}
 			i--;			
 		}
