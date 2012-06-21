@@ -7,8 +7,9 @@
 void vizsla_process_http(struct cheeta_session *);
 void vizsla_process_http(struct cheeta_session *httpsession)
 {
-	memcpy(httpsession->buffer, "Hello World!", 12);
-	httpsession->buffer[12] = '\0';		
+	memset(httpsession->buffer, 0, 4092);
+	strncpy(httpsession->buffer, "Hello World!", 4092);
+	httpsession->buffer[12] = '\0';
 	httpsession->writesize = 13;
 	httpsession->ready4write = 1;
 	return;
@@ -17,7 +18,6 @@ void vizsla_process_http(struct cheeta_session *httpsession)
 int main(void)
 {
 	class server *pserver = new server();
-	char recvbuffer[100];
 	unsigned int recvlength = 25;
 	struct eventfd addevent;
 	struct cheeta_context *handle = cheeta_event_init();
@@ -29,12 +29,22 @@ int main(void)
 
 	for(;;)
 	{	
-		int eventcount, i, accepted;
+		int eventcount, k, i;
 		
 		eventcount = cheeta_event_get(handle, &eventbuffer[0], 32);
-		i = eventcount;
-		while(i > 0)
-		{	
+		k = eventcount;
+		while(k > 0)
+		{
+			i = k-1;	
+			if(((eventbuffer[i].out_event & EPOLLHUP) || (eventbuffer[i].out_event & EPOLLERR)) && (eventbuffer[i].fd != pserver->socketfd))
+			{
+				struct eventfd event2remove;
+
+				event2remove.fd = eventbuffer[i].fd;
+				cheeta_remove_eventfd(handle, &event2remove, 0);
+				close(eventbuffer[i].fd);
+			
+			}
 			if(eventbuffer[i].out_event & CH_EV_READ)  
 			{	
 				if(eventbuffer[i].fd == pserver->socketfd)
@@ -57,19 +67,19 @@ int main(void)
 					vizsla_process_http(&(handle->sessions[eventbuffer[i].fd-4]));	
 				}
 			}	
-			else if(eventbuffer[i].out_event &CH_EV_WRITE)
+			if(eventbuffer[i].out_event & CH_EV_WRITE)
 			{	
-				if(handle->sessions[eventbuffer[i].fd-4].ready4write)
+				if((handle->sessions[eventbuffer[i].fd-4].ready4write) && (handle->sessions[eventbuffer[i].fd-4].writesize))
 				{
 					int writecount = 0;
-					
-					writecount -= write(eventbuffer[i].fd, &(handle->sessions[eventbuffer[i].fd-4]), handle->sessions[eventbuffer[i].fd-4].writesize);
+					writecount = write(eventbuffer[i].fd, &(handle->sessions[eventbuffer[i].fd-4].buffer), handle->sessions[eventbuffer[i].fd-4].writesize);
+					printf("wrote %d bytes\n", writecount);
 					handle->sessions[eventbuffer[i].fd-4].writesize -= writecount;	
 					if(!(handle->sessions[eventbuffer[i].fd-4].writesize))
 						handle->sessions[eventbuffer[i].fd-4].ready4write = 0;
 				}
 			}
-			i--;			
+			k--;			
 		}
 	}
 	return 0;

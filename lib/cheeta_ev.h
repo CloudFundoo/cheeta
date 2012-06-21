@@ -30,6 +30,6 @@ struct cheeta_context *cheeta_event_init(void);
 unsigned int cheeta_event_get(struct cheeta_context *, struct eventfd *, unsigned int);
 unsigned int cheeta_add_eventfd(struct cheeta_context *, struct eventfd *, unsigned int);
 
-inline unsigned int cheeta_remove_eventfd(struct cheeta_context *, struct eventfd *, unsigned int);
+unsigned int cheeta_remove_eventfd(struct cheeta_context *, struct eventfd *, unsigned int);
 
 inline unsigned int cheeta_modify_eventfd(struct cheeta_context *, struct eventfd *, unsigned int);

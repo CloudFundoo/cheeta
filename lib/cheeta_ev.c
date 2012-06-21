@@ -40,7 +40,7 @@ unsigned int cheeta_add_eventfd(struct cheeta_context *context, struct eventfd *
 
 	return epoll_ctl(context->epfd, EPOLL_CTL_ADD, event2add.data.fd, &event2add);			
 }
-inline unsigned int cheeta_remove_eventfd(struct cheeta_context *context, struct eventfd *event, unsigned int size)
+unsigned int cheeta_remove_eventfd(struct cheeta_context *context, struct eventfd *event, unsigned int size)
 {
 	struct epoll_event event2remove;
 	
@@ -55,7 +55,7 @@ inline unsigned int cheeta_modify_eventfd(struct cheeta_context *context, struct
 	struct epoll_event event2remove;
 	
 	event2remove.data.fd = event->fd;
-	event2remove.events = event->in_event;
+	event2remove.events = (event->in_event|EPOLLET);
 	
 	return epoll_ctl(context->epfd, EPOLL_CTL_MOD, event2remove.data.fd, &event2remove);
 }
