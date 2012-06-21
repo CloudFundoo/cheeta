@@ -7,8 +7,8 @@
 void vizsla_process_http(struct cheeta_session *);
 void vizsla_process_http(struct cheeta_session *httpsession)
 {
-	memset(httpsession->buffer, 0, 4092);
-	strncpy(httpsession->buffer, "Hello World!", 4092);
+	memset(httpsession->buffer, 0, 13);
+	strncpy(httpsession->buffer, "Hello World!", 12);
 	httpsession->buffer[12] = '\0';
 	httpsession->writesize = 13;
 	httpsession->ready4write = 1;
