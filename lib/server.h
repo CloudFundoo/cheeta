@@ -6,7 +6,6 @@ class server{
 public:
         server();
         ~server();
-private:
         int socketfd;
         int rsocketfd;
         struct sockaddr_un instanceaddr;

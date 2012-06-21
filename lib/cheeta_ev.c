@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -21,7 +22,7 @@ unsigned int cheeta_event_get(struct cheeta_context *context, struct eventfd *ev
 	if(eventfdcount > 0)
 	{	
 		int i = 0;
-		while(;i < eventfdcount; i++)
+		for(;i < eventfdcount; i++)
 		{
 			eventbuffer[i].fd = context->onevent[i].data.fd;
 			eventbuffer[i].out_event = context->onevent[i].events;
@@ -30,7 +31,7 @@ unsigned int cheeta_event_get(struct cheeta_context *context, struct eventfd *ev
 	return eventfdcount;
 }
 
-inline unsigned int cheeta_add_eventfd(struct cheeta_context *context, struct eventfd *event, unsigned int size)
+unsigned int cheeta_add_eventfd(struct cheeta_context *context, struct eventfd *event, unsigned int size)
 {	
 	struct epoll_event event2add;
 
@@ -39,7 +40,7 @@ inline unsigned int cheeta_add_eventfd(struct cheeta_context *context, struct ev
 
 	return epoll_ctl(context->epfd, EPOLL_CTL_ADD, event2add.data.fd, &event2add);			
 }
-inline unsigned int cheeta_remove_eventfd(struct cheeta_context *context, structeventfd *event, unsigned int size)
+inline unsigned int cheeta_remove_eventfd(struct cheeta_context *context, struct eventfd *event, unsigned int size)
 {
 	struct epoll_event event2remove;
 	
@@ -49,7 +50,7 @@ inline unsigned int cheeta_remove_eventfd(struct cheeta_context *context, struct
 	return epoll_ctl(context->epfd, EPOLL_CTL_DEL, event2remove.data.fd, &event2remove);
 }
 
-inline unsigned int cheeta_modify_eventfd(struct cheeta_context *context, structeventfd *event, unsigned int size)
+inline unsigned int cheeta_modify_eventfd(struct cheeta_context *context, struct eventfd *event, unsigned int size)
 {
 	struct epoll_event event2remove;
 	
