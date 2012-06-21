@@ -1,6 +1,17 @@
 #include <stdio.h>
+#include <string.h>
 #include "server.h"
 #include "cheeta_ev.h"
+
+void vizsla_process_http(struct cheeta_session *);
+void vizsla_process_http(struct cheeta_session *httpsession)
+{
+	memncpy(httpsession->buffer, "Hello World!", 12);
+	httpsession->buffer[12] = '\0';		
+	httpsession->writesize = 13;
+	httpsession->ready4write = 1;
+	return;
+}
 
 int main(void)
 {
@@ -53,6 +64,8 @@ int main(void)
 					
 					writecount -= write(eventbuffer[i].data.fd, handle->sessions[eventbuffer[i].data.fd-4], handle->sessions[eventbuffer[i].data.fd-4].writesize;
 					handle->sessions[eventbuffer[i].data.fd-4].writesize -= writecount;	
+					if(!(handle->sessions[eventbuffer[i].data.fd-4].writesize))
+						handle->sessions[eventbuffer[i].data.fd-4].ready4write = 0;
 				}
 			}
 			i--;			
