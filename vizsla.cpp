@@ -1,8 +1,12 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
+#include <pthread.h>
+#include <sched.h>
 #include "server.h"
 #include "cheeta_ev.h"
+#include "vizsla.h"
 
 void vizsla_process_http(struct cheeta_session *);
 void vizsla_process_http(struct cheeta_session *httpsession)
@@ -15,17 +19,21 @@ void vizsla_process_http(struct cheeta_session *httpsession)
 	return;
 }
 
-int main(void)
+void *vizsla_cpu_eventloop_threadfunc(void *arg)
 {
-	class server *pserver = new server();
-	unsigned int recvlength = 25;
-	struct eventfd addevent;
-	struct cheeta_context *handle = cheeta_event_init();
+	struct tcpu_info *ptcpuinfo;
+	struct sched_param tsched_param;
+	cpu_set_t cpuset;
 	struct eventfd eventbuffer[32];
+	
+	ptcpuinfo = (struct tcpu_info *)arg;
+	tsched_param.sched_priority = sched_get_priority_max(SCHED_RR);
+	pthread_setschedparam(pthread_self(), SCHED_RR, &tsched_param);
 
-	addevent.fd = pserver->socketfd;
-	addevent.in_event = CH_EV_READ;
-	cheeta_add_eventfd(handle, &addevent, sizeof(addevent)/sizeof(struct eventfd));
+	CPU_ZERO(&cpuset);
+	CPU_SET(ptcpuinfo->cpu_num, &cpuset);
+	pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset); 
+	pthread_yield();
 
 	for(;;)
 	{	
@@ -82,5 +90,46 @@ int main(void)
 			k--;			
 		}
 	}
+	
+}
+
+int main(void)
+{
+	class server *pserver = new server();
+	unsigned int recvlength = 25;
+	struct eventfd addevent;
+	struct cheeta_context *listenerhandle = cheeta_event_init();
+	unsigned int configuredcpuscount = 0;
+	unsigned int onlinecpuscount = 0;
+	pthread_t threadid;
+	pthread_attr_t thread_attr;
+	int ret;
+	int threadcount = 0;
+	struct tcpu_info *ptcpuinfo;
+
+	configuredcpuscount = sysconf(_SC_NPROCESSORS_CONF);
+	onlinecpuscount = sysconf(_SC_NPROCESSORS_ONLN);
+	
+	addevent.fd = pserver->socketfd;
+	addevent.in_event = CH_EV_READ;
+	cheeta_add_eventfd(handle, &addevent, sizeof(addevent)/sizeof(struct eventfd));
+	
+	threadcount = onlinecpuscount;
+	while(threadcount){
+		pthread_attr_init(&thread_attr);
+		pthread_attr_setdetachstate(&thread_attr, PTHREAD_CREATE_DETACHED);
+		ptcpuinfo = (struct tcpu_info *)malloc(sizeof(struct tcpu_info));
+		memset(ptcpuinfo, 0, sizeof(struct tcpu_info));
+		ptcpuinfo->cpu_num = threadcount;
+		ptcpuinfo->listenerfd = pserver->socketfd;
+
+		if((ret = pthread_create(&threadid, &thread_attr, vizsla_cpu_eventloop_threadfunc, ptcpuinfo) != 0))
+		{
+			perror("pthread_create failed");
+			return ret;
+		}
+		threadcount--;
+	}
+
 	return 0;
 }
