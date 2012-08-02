@@ -1,6 +1,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/un.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 class client{
 public:
@@ -11,7 +12,7 @@ public:
 	int connect();
 private:
 	int socketfd;
-	struct sockaddr_un instanceaddr;
+	struct sockaddr_in instanceaddr;
 	static unsigned int instance_cnt;
-	struct sockaddr_un remoteaddr;
+	struct sockaddr_in remoteaddr;
 };

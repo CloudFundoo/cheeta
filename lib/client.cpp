@@ -12,7 +12,7 @@ client::client(){
 	char name[30];
 
 	instance_cnt++;	
-	socketfd = socket(AF_UNIX, SOCK_STREAM, 0);
+	socketfd = socket(AF_INET, SOCK_STREAM, 0);
 #if 0
 	memset(&instanceaddr, 0, sizeof(struct sockaddr_un));
 	instanceaddr.sun_family = AF_UNIX;
@@ -28,10 +28,10 @@ client::~client(){
 }
 
 int client::connect(){
-	remoteaddr.sun_family = AF_UNIX;
-	remoteaddr.sun_path[0] = 0;
-	strncpy(&(remoteaddr.sun_path[1]), SERVER_ADDR, 25);
-	return ::connect(socketfd, (struct sockaddr *)&remoteaddr, sizeof(struct sockaddr_un));			
+	remoteaddr.sin_family = AF_INET;
+	remoteaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	remoteaddr.sin_port = htons(5555);
+	return ::connect(socketfd, (struct sockaddr *)&remoteaddr, sizeof(struct sockaddr_in));			
 }
 
 int client::send(void *buffer, unsigned int size){

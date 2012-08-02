@@ -1,6 +1,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/un.h>
+#include <netinet/in.h>
 
 class server{
 public:
@@ -8,7 +8,7 @@ public:
         ~server();
         int socketfd;
         int rsocketfd;
-        struct sockaddr_un instanceaddr;
-        struct sockaddr_un remoteaddr;
+        struct sockaddr_in instanceaddr;
+        struct sockaddr_in remoteaddr;
 };
 
