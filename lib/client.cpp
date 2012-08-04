@@ -12,7 +12,7 @@ client::client(){
 	char name[30];
 
 	instance_cnt++;	
-	socketfd = socket(AF_INET, SOCK_STREAM, 0);
+	socketfd = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, 0);
 #if 0
 	memset(&instanceaddr, 0, sizeof(struct sockaddr_un));
 	instanceaddr.sun_family = AF_UNIX;
