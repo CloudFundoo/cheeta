@@ -2,6 +2,7 @@
 
 struct eventfd{
 	int fd;
+	void *ptr;
 	unsigned int in_event;
 	unsigned int out_event;	
 };

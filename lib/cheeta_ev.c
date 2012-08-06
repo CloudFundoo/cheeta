@@ -24,7 +24,8 @@ unsigned int cheeta_event_get(struct cheeta_context *context, struct eventfd *ev
 		int i = 0;
 		for(;i < eventfdcount; i++)
 		{
-			eventbuffer[i].fd = context->onevent[i].data.fd;
+			eventbuffer[i].fd = ((struct eventfd *)(context->onevent[i].data.ptr))->fd;
+			eventbuffer[i].ptr = ((struct eventfd *)(context->onevent[i].data.ptr))->ptr;
 			eventbuffer[i].out_event = context->onevent[i].events;
 		}		
 	}
@@ -35,27 +36,27 @@ unsigned int cheeta_add_eventfd(struct cheeta_context *context, struct eventfd *
 {	
 	struct epoll_event event2add;
 
-	event2add.data.fd = event->fd;
+	event2add.data.ptr = event;
 	event2add.events = event->in_event;
 
-	return epoll_ctl(context->epfd, EPOLL_CTL_ADD, event2add.data.fd, &event2add);			
+	return epoll_ctl(context->epfd, EPOLL_CTL_ADD, event->fd, &event2add);			
 }
 unsigned int cheeta_remove_eventfd(struct cheeta_context *context, struct eventfd *event, unsigned int size)
 {
 	struct epoll_event event2remove;
 	
-	event2remove.data.fd = event->fd;
+	event2remove.data.ptr = event;
 	event2remove.events = 0;
 	
-	return epoll_ctl(context->epfd, EPOLL_CTL_DEL, event2remove.data.fd, &event2remove);
+	return epoll_ctl(context->epfd, EPOLL_CTL_DEL, event->fd, &event2remove);
 }
 
 inline unsigned int cheeta_modify_eventfd(struct cheeta_context *context, struct eventfd *event, unsigned int size)
 {
 	struct epoll_event event2remove;
 	
-	event2remove.data.fd = event->fd;
+	event2remove.data.ptr = event;
 	event2remove.events = (event->in_event|EPOLLET);
 	
-	return epoll_ctl(context->epfd, EPOLL_CTL_MOD, event2remove.data.fd, &event2remove);
+	return epoll_ctl(context->epfd, EPOLL_CTL_MOD, event->fd, &event2remove);
 }

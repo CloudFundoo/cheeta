@@ -3,19 +3,105 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <errno.h>
 #include "client.h"
 #include "slave.h"
+#include "cheeta_ev.h"
+
+#define ON_CONNECT	0
+#define CONNECTED	1
+
+struct connection
+{
+	int state;
+	char buffer[4096];
+};
 
 
 void *vizsla_client_event_loop(void * arg)
 {
+	int ret;
 	struct tcpu_info *ptcpuinfo;
-	class client *pclient[] = NULL;
+	unsigned int treq_per_thread;
+	unsigned int tconcurr_per_thread;
+	int *socketfds[1];
+	int *currentsocketfd;
+	unsigned int loop = 0;
+	struct cheeta_context *cheeta_thandle = cheeta_event_init();
+	struct sockaddr_in serveraddr;
+	struct eventfd *addevent;
+	struct eventfd *removeevent;
+	struct eventfd *eventbuffer;
+	struct connection *connections;
 
 	ptcpuinfo = (struct tcpu_info *)arg;
+	tconcurr_per_thread = ptcpuinfo->tconcurr_req_thread;
+	treq_per_thread = ptcpuinfo->treq_thread; 
 
-	pclient = new client();
+	socketfds[1] = (int *)malloc(tconcurr_per_thread * sizeof(unsigned int));
+	loop = tconcurr_per_thread;
+	
+	currentsocketfd = socketfds[1];
+	while(loop--)
+	{
+		currentsocketfd++;
+		*currentsocketfd = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, 0);
+		
+		serveraddr.sin_family = AF_INET;
+		serveraddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+		serveraddr.sin_port = htons(5555);
 
+		
+		if((ret = connect(*currentsocketfd, (struct sockaddr *)&serveraddr, sizeof(sockaddr_in))) != 0)
+		{
+			if(errno == EINPROGRESS)
+			{	
+				struct connection *pconnection = NULL;
+
+				addevent = (struct eventfd *)malloc(sizeof(struct eventfd));
+				addevent->fd = *currentsocketfd;				
+				pconnection = (struct connection *)malloc(sizeof(struct connection));	
+				pconnection->state = ON_CONNECT;
+    			addevent->in_event = CH_EV_WRITE|EPOLLET;
+				addevent->ptr = pconnection;
+    			cheeta_add_eventfd(cheeta_thandle, addevent, sizeof(addevent)/sizeof(struct eventfd));
+			}
+		}
+	}
+
+	eventbuffer = (struct eventfd *)malloc(tconcurr_per_thread * sizeof(struct eventfd));
+	
+	for(;;)
+	{
+		int eventcount, k, i;
+	
+		eventcount = cheeta_event_get(cheeta_thandle, eventbuffer, tconcurr_per_thread);
+		k = eventcount;
+		while(k > 0)
+		{
+			i = k-1;		
+
+			if((eventbuffer[i].out_event & EPOLLHUP) || (eventbuffer[i].out_event & EPOLLERR))
+			{
+				removeevent = (struct eventfd *)malloc(sizeof(struct eventfd));
+                removeevent->fd = eventbuffer[i].fd;
+                cheeta_remove_eventfd(cheeta_thandle, removeevent, 0);
+                close(eventbuffer[i].fd);
+				if(removeevent->ptr)
+					free(removeevent->ptr);
+				if(removeevent)
+					free(removeevent);	
+			}
+			if(eventbuffer[i].out_event & CH_EV_READ)
+			{
+				/** code to read response from server here **/
+			}
+			else if(eventbuffer[i].out_event & CH_EV_WRITE)
+			{
+				/** We need to handle two cases here **/
+			}
+		}
+	}
 }
 
 int main(int argc, char **argv)
@@ -95,16 +181,5 @@ int main(int argc, char **argv)
         threadcount--;
     }
 
-#if 0
-	if(!pclient->connect())
-	{
-		pclient->send((void *)sendbuffer, strlen(sendbuffer));
-		pclient->recv((void *)recvbuffer, recvsize);
-		printf("I got %s\n", recvbuffer);
-	}
-	else {
-		printf("client::error in connect\n");
-	}	
-#endif
 	return 0;
 }
