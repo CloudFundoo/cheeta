@@ -15,7 +15,7 @@ struct cheeta_context *cheeta_event_init()
 	return cheeta;
 }
 
-unsigned int cheeta_event_get(struct cheeta_context *context, struct eventfd *eventbuffer, unsigned int buffersize) 
+unsigned int cheeta_event_get(struct cheeta_context *context, struct eventfd *(*eventbuffer)[1], unsigned int buffersize) 
 {
 	int eventfdcount;
 	eventfdcount = epoll_wait(context->epfd, context->onevent, 32, 0);
@@ -24,9 +24,8 @@ unsigned int cheeta_event_get(struct cheeta_context *context, struct eventfd *ev
 		int i = 0;
 		for(;i < eventfdcount; i++)
 		{
-			eventbuffer[i].fd = ((struct eventfd *)(context->onevent[i].data.ptr))->fd;
-			eventbuffer[i].ptr = ((struct eventfd *)(context->onevent[i].data.ptr))->ptr;
-			eventbuffer[i].out_event = context->onevent[i].events;
+			(*eventbuffer)[i] = (struct eventfd *)(context->onevent[i].data.ptr);
+			((*eventbuffer)[i])->out_event = context->onevent[i].events;
 		}		
 	}
 	return eventfdcount;

@@ -31,7 +31,7 @@ void *vizsla_client_event_loop(void * arg)
 	struct sockaddr_in serveraddr;
 	struct eventfd *addevent;
 	struct eventfd *removeevent;
-	struct eventfd *eventbuffer;
+	struct eventfd *eventbuffer[1];
 	struct connection *connections;
 
 	ptcpuinfo = (struct tcpu_info *)arg;
@@ -69,34 +69,34 @@ void *vizsla_client_event_loop(void * arg)
 		}
 	}
 
-	eventbuffer = (struct eventfd *)malloc(tconcurr_per_thread * sizeof(struct eventfd));
+	eventbuffer[0] = (struct eventfd *)malloc(tconcurr_per_thread * sizeof(struct eventfd *));
 	
 	for(;;)
 	{
 		int eventcount, k, i;
 	
-		eventcount = cheeta_event_get(cheeta_thandle, eventbuffer, tconcurr_per_thread);
+		eventcount = cheeta_event_get(cheeta_thandle, &eventbuffer, tconcurr_per_thread);
 		k = eventcount;
 		while(k > 0)
 		{
 			i = k-1;		
 
-			if((eventbuffer[i].out_event & EPOLLHUP) || (eventbuffer[i].out_event & EPOLLERR))
+			if((eventbuffer[i]->out_event & EPOLLHUP) || (eventbuffer[i]->out_event & EPOLLERR))
 			{
 				removeevent = (struct eventfd *)malloc(sizeof(struct eventfd));
-                removeevent->fd = eventbuffer[i].fd;
+                removeevent->fd = eventbuffer[i]->fd;
                 cheeta_remove_eventfd(cheeta_thandle, removeevent, 0);
-                close(eventbuffer[i].fd);
+                close(eventbuffer[i]->fd);
 				if(removeevent->ptr)
 					free(removeevent->ptr);
 				if(removeevent)
 					free(removeevent);	
 			}
-			if(eventbuffer[i].out_event & CH_EV_READ)
+			if(eventbuffer[i]->out_event & CH_EV_READ)
 			{
 				/** code to read response from server here **/
 			}
-			else if(eventbuffer[i].out_event & CH_EV_WRITE)
+			else if(eventbuffer[i]->out_event & CH_EV_WRITE)
 			{
 				/** We need to handle two cases here **/
 			}
