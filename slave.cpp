@@ -4,7 +4,10 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <errno.h>
-#include "client.h"
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include "slave.h"
 #include "cheeta_ev.h"
 
@@ -33,6 +36,9 @@ void *vizsla_client_event_loop(void * arg)
 	struct eventfd *removeevent;
 	struct eventfd *eventbuffer[1];
 	struct connection *connections;
+	char sendbuffer[100] = "I am fucked and you?";
+	char recvbuffer[100];
+	unsigned int recvsize = 100;
 
 	ptcpuinfo = (struct tcpu_info *)arg;
 	tconcurr_per_thread = ptcpuinfo->tconcurr_req_thread;
@@ -83,22 +89,43 @@ void *vizsla_client_event_loop(void * arg)
 
 			if((eventbuffer[i]->out_event & EPOLLHUP) || (eventbuffer[i]->out_event & EPOLLERR))
 			{
-				removeevent = (struct eventfd *)malloc(sizeof(struct eventfd));
-                removeevent->fd = eventbuffer[i]->fd;
+				removeevent = eventbuffer[i];
                 cheeta_remove_eventfd(cheeta_thandle, removeevent, 0);
                 close(eventbuffer[i]->fd);
-				if(removeevent->ptr)
-					free(removeevent->ptr);
-				if(removeevent)
-					free(removeevent);	
+				if(removeevent->ptr);
+					//free(removeevent->ptr);
+				if(removeevent);
+					//free(removeevent);	
 			}
 			if(eventbuffer[i]->out_event & CH_EV_READ)
 			{
-				/** code to read response from server here **/
+				read(eventbuffer[i]->fd, (void *)recvbuffer, recvsize);
+				printf("I got %s\n", recvbuffer);
+				removeevent = eventbuffer[i];
+                cheeta_remove_eventfd(cheeta_thandle, removeevent, 0);
+                close(eventbuffer[i]->fd);
+                if(removeevent->ptr);
+//                    free(removeevent->ptr);
+                if(removeevent);
+  //                  free(removeevent);
 			}
 			else if(eventbuffer[i]->out_event & CH_EV_WRITE)
 			{
-				/** We need to handle two cases here **/
+				if(!((struct connection *)eventbuffer[i]->ptr)->state)
+				{
+					int sock_optval = -1;
+					int sock_optval_len = sizeof(sock_optval);
+					
+					if(!getsockopt(eventbuffer[i]->fd, SOL_SOCKET, SO_ERROR, (void *)&sock_optval, (socklen_t *)&sock_optval_len))
+					{
+						if(!sock_optval)
+							((struct connection *)eventbuffer[i]->ptr)->state = CONNECTED;
+					} 
+				}
+				else
+				{
+					write(eventbuffer[i]->fd, (void *)sendbuffer, strlen(sendbuffer));
+				}			
 			}
 		}
 	}
@@ -107,9 +134,6 @@ void *vizsla_client_event_loop(void * arg)
 int main(int argc, char **argv)
 {
 	int c, ret;
-	char sendbuffer[100] = "I am fucked and you?";
-	char recvbuffer[100];
-	unsigned int recvsize = 100;
 	unsigned int concurrency = 0;
 	unsigned int totalnoreq = 0;
 	pthread_t threadid;
@@ -166,20 +190,25 @@ int main(int argc, char **argv)
 		pthread_attr_setschedpolicy(&thread_attr, SCHED_RR);
     	pthread_attr_setschedparam(&thread_attr, &tsched_param);
     	CPU_ZERO(&cpuset);
-    	CPU_SET(threadcount, &cpuset);
-		pthread_attr_setaffinity_np(&thread_attr, sizeof(cpuset), &cpuset);
+    	CPU_SET(threadcount-1, &cpuset);
+		printf("thread count %d\n", threadcount);
+		if(pthread_attr_setaffinity_np(&thread_attr, sizeof(cpuset), &cpuset)!=0)
+			printf("Error1\n");
         ptcpuinfo = (struct tcpu_info *)malloc(sizeof(struct tcpu_info));
         memset(ptcpuinfo, 0, sizeof(struct tcpu_info));
         ptcpuinfo->tconcurr_req_thread = tconcurr_per_thread;
         ptcpuinfo->treq_thread = treq_per_thread;
 
-        if((ret = pthread_create(&threadid, &thread_attr, vizsla_client_event_loop, ptcpuinfo) != 0))
+        if((ret = pthread_create(&threadid, &thread_attr, vizsla_client_event_loop, ptcpuinfo)) !=0 )
         {
-            perror("pthread_create failed");
+            printf("pthread_create failed %d\n", ret);
             return ret;
-        }
+        }else
+		printf("Success in thread\n");
         threadcount--;
     }
+	while(1)
+		sleep(10);
 
 	return 0;
 }
