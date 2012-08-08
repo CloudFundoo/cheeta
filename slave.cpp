@@ -44,7 +44,7 @@ void *vizsla_client_event_loop(void * arg)
 	tconcurr_per_thread = ptcpuinfo->tconcurr_req_thread;
 	treq_per_thread = ptcpuinfo->treq_thread; 
 
-	socketfds[1] = (int *)malloc(tconcurr_per_thread * sizeof(unsigned int));
+	socketfds[1] = (int *)malloc(tconcurr_per_thread * sizeof(int));
 	loop = tconcurr_per_thread;
 	
 	currentsocketfd = socketfds[1];
@@ -146,13 +146,14 @@ int main(int argc, char **argv)
 	unsigned int tconcurr_per_thread = 0;
 	struct sched_param tsched_param;
     cpu_set_t cpuset;
+	char *hostaddr, *hostport;
 	
 	configuredcpuscount = sysconf(_SC_NPROCESSORS_CONF);
 	onlinecpuscount = sysconf(_SC_NPROCESSORS_ONLN);	
 
 	opterr = 0;
 
-	while((c = getopt(argc, argv, "n:c:")) != -1)
+	while((c = getopt(argc, argv, "n:c:h:p:")) != -1)
 	{
 		switch(c)
 		{
@@ -162,11 +163,21 @@ int main(int argc, char **argv)
 			case 'n':
 				totalnoreq = atoi(optarg);
 				break;
+			case 'h':
+				hostaddr = strdup(optarg);
+				break;
+			case 'p':
+				hostport = strdup(optarg);
+				break;
 			case '?':
 				if(optopt == 'c')
 					printf("A -c %c was specified without arguments\n", optopt);
 				if(optopt == 'n')
 					printf("A -n %c was specified without arguments\n", optopt);
+				if(optopt == 'h')
+					printf("A -h %c was specified without arguments\n", optopt);
+				if(optopt == 'p')
+					printf("A -p %c was specified without arguments\n", optopt);
 				break;
 			default:
 				abort();
@@ -191,9 +202,7 @@ int main(int argc, char **argv)
     	pthread_attr_setschedparam(&thread_attr, &tsched_param);
     	CPU_ZERO(&cpuset);
     	CPU_SET(threadcount-1, &cpuset);
-		printf("thread count %d\n", threadcount);
-		if(pthread_attr_setaffinity_np(&thread_attr, sizeof(cpuset), &cpuset)!=0)
-			printf("Error1\n");
+		pthread_attr_setaffinity_np(&thread_attr, sizeof(cpuset), &cpuset);
         ptcpuinfo = (struct tcpu_info *)malloc(sizeof(struct tcpu_info));
         memset(ptcpuinfo, 0, sizeof(struct tcpu_info));
         ptcpuinfo->tconcurr_req_thread = tconcurr_per_thread;
@@ -203,8 +212,8 @@ int main(int argc, char **argv)
         {
             printf("pthread_create failed %d\n", ret);
             return ret;
-        }else
-		printf("Success in thread\n");
+        }
+
         threadcount--;
     }
 	while(1)
