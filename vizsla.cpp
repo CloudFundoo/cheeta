@@ -61,7 +61,7 @@ void *vizsla_cpu_eventloop_threadfunc(void *arg)
 				{
 					int newfd;
 
-					while((newfd =	accept(ptcpuinfo->listenerfd, NULL, NULL)) > 0)
+					while((newfd =	accept4(ptcpuinfo->listenerfd, NULL, NULL, SOCK_NONBLOCK)) > 0)
 					{
 						addevent = (struct eventfd *)malloc(sizeof(struct eventfd));
 						addevent->in_event = CH_EV_READ|CH_EV_WRITE;
