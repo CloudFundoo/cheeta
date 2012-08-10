@@ -11,6 +11,7 @@ struct cheeta_context *cheeta_event_init()
 	struct cheeta_context *cheeta = (struct cheeta_context *)
 				malloc(sizeof(struct cheeta_context));
 	cheeta->epfd = epoll_create(1024);	
+	cheeta->polledfdscount = 0;
 	
 	return cheeta;
 }
@@ -18,16 +19,23 @@ struct cheeta_context *cheeta_event_init()
 unsigned int cheeta_event_get(struct cheeta_context *context, struct eventfd *(*eventbuffer)[1], unsigned int buffersize) 
 {
 	int eventfdcount;
-	eventfdcount = epoll_wait(context->epfd, context->onevent, 32, 0);
+	struct epoll_event *onevent;
+	
+	onevent = (struct epoll_event *)malloc(context->polledfdscount * sizeof(struct epoll_event));
+	
+	eventfdcount = epoll_wait(context->epfd, onevent, context->polledfdscount, 0);
+	*eventbuffer[0] = (struct eventfd *)malloc(eventfdcount * sizeof(struct eventfd *));
+	
 	if(eventfdcount > 0)
 	{	
 		int i = 0;
 		for(;i < eventfdcount; i++)
 		{
-			(*eventbuffer)[i] = (struct eventfd *)(context->onevent[i].data.ptr);
-			((*eventbuffer)[i])->out_event = context->onevent[i].events;
+			(*eventbuffer)[i] = (struct eventfd *)(onevent[i].data.ptr);
+			((*eventbuffer)[i])->out_event = onevent[i].events;
 		}		
 	}
+	free(onevent);
 	return eventfdcount;
 }
 
@@ -37,6 +45,7 @@ unsigned int cheeta_add_eventfd(struct cheeta_context *context, struct eventfd *
 
 	event2add.data.ptr = event;
 	event2add.events = event->in_event;
+	context->polledfdscount++;
 
 	return epoll_ctl(context->epfd, EPOLL_CTL_ADD, event->fd, &event2add);			
 }
@@ -46,6 +55,7 @@ unsigned int cheeta_remove_eventfd(struct cheeta_context *context, struct eventf
 	
 	event2remove.data.ptr = event;
 	event2remove.events = 0;
+	context->polledfdscount--;
 	
 	return epoll_ctl(context->epfd, EPOLL_CTL_DEL, event->fd, &event2remove);
 }

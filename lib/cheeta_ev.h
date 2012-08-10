@@ -7,20 +7,10 @@ struct eventfd{
 	unsigned int out_event;	
 };
 
-struct cheeta_session{
-	int remotefd;
-	char buffer[4092];
-	int requestsize;
-	int responsesize;
-	int ready4write;
-	int writesize;
-};
-
 /** FD set **/
 struct cheeta_context {
 	int epfd;
-	struct epoll_event onevent[32];	
-	struct cheeta_session sessions[32];
+	unsigned int polledfdscount;
 };
 
 

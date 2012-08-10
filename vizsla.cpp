@@ -47,8 +47,6 @@ void *vizsla_cpu_eventloop_threadfunc(void *arg)
 	addevent->in_event = CH_EV_READ|EPOLLET;
 	cheeta_add_eventfd(cheeta_thandle, addevent, sizeof(addevent)/sizeof(struct eventfd));
 
-	eventbuffer[0] = (struct eventfd *)malloc(32 * sizeof(struct eventfd *));
-
 	for(;;)
 	{	
 		int eventcount, k, i;
@@ -58,6 +56,7 @@ void *vizsla_cpu_eventloop_threadfunc(void *arg)
 		while(k > 0)
 		{
 			i = k-1;	
+			k--;			
 			currevent = eventbuffer[i];
 			curconnection = (struct connection *)currevent->ptr;
 			if(((currevent->out_event & EPOLLHUP) || (currevent->out_event & EPOLLERR)) && 
@@ -106,10 +105,9 @@ void *vizsla_cpu_eventloop_threadfunc(void *arg)
 						curconnection->ready4write = 0;
 				}
 			}
-			k--;			
 		}
+		free(eventbuffer[0]);
 	}
-	
 }
 
 int main(void)
