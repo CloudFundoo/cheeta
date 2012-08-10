@@ -83,7 +83,8 @@ void *vizsla_client_event_loop(void * arg)
 		k = eventcount;
 		while(k > 0)
 		{
-			i = k-1;		
+			i = k-1;	
+			k--;	
 
 			if((eventbuffer[i]->out_event & EPOLLHUP) || (eventbuffer[i]->out_event & EPOLLERR))
 			{
