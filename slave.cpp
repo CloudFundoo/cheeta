@@ -75,8 +75,6 @@ void *vizsla_client_event_loop(void * arg)
 		}
 	}
 
-	eventbuffer[0] = (struct eventfd *)malloc(tconcurr_per_thread * sizeof(struct eventfd *));
-	
 	for(;;)
 	{
 		int eventcount, k, i;
@@ -128,6 +126,7 @@ void *vizsla_client_event_loop(void * arg)
 				}			
 			}
 		}
+		free(eventbuffer[0]);
 	}
 }
 

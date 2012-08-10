@@ -69,6 +69,7 @@ void *vizsla_cpu_eventloop_threadfunc(void *arg)
                     free(removeevent->ptr);
                 if(removeevent);
                 	free(removeevent);
+				continue;
 			}
 			if(currevent->out_event & CH_EV_READ)  
 			{	
@@ -91,6 +92,7 @@ void *vizsla_cpu_eventloop_threadfunc(void *arg)
 					curconnection->responsesize = read(currevent->fd, curconnection->buffer, 4092);
 					vizsla_process_http(curconnection);	
 				}
+				continue;
 			}	
 			if(currevent->out_event & CH_EV_WRITE)
 			{	
@@ -104,6 +106,7 @@ void *vizsla_cpu_eventloop_threadfunc(void *arg)
 					if(!(curconnection->writesize))
 						curconnection->ready4write = 0;
 				}
+				continue;
 			}
 		}
 		free(eventbuffer[0]);
