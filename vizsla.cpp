@@ -8,14 +8,25 @@
 #include "cheeta_ev.h"
 #include "vizsla.h"
 
-void vizsla_process_http(struct cheeta_session *);
-void vizsla_process_http(struct cheeta_session *httpsession)
+struct connection
 {
-	memset(httpsession->buffer, 0, 13);
-	strncpy(httpsession->buffer, "Hello World!", 12);
-	httpsession->buffer[12] = '\0';
-	httpsession->writesize = 13;
-	httpsession->ready4write = 1;
+    int state;
+    char buffer[4096];
+	int requestsize;
+	int responsesize;
+	int ready4write;
+	int writesize;
+};
+
+
+void vizsla_process_http(struct cheeta_session *);
+void vizsla_process_http(struct connection *connection)
+{
+	memset(connection->buffer, 0, 13);
+	strncpy(connection->buffer, "Hello World!", 12);
+	connection->buffer[12] = '\0';
+	connection->writesize = 13;
+	connection->ready4write = 1;
 	return;
 }
 
@@ -25,6 +36,8 @@ void *vizsla_cpu_eventloop_threadfunc(void *arg)
 	struct eventfd *eventbuffer[1];
 	struct eventfd *addevent;
 	struct eventfd *removeevent;
+	struct eventfd *currevent;
+	struct connection *curconnection = NULL;
 	struct cheeta_context *cheeta_thandle = cheeta_event_init();
 	
 	ptcpuinfo = (struct tcpu_info *)arg;
@@ -45,9 +58,12 @@ void *vizsla_cpu_eventloop_threadfunc(void *arg)
 		while(k > 0)
 		{
 			i = k-1;	
-			if(((eventbuffer[i]->out_event & EPOLLHUP) || (eventbuffer[i]->out_event & EPOLLERR)) && (eventbuffer[i]->fd != ptcpuinfo->listenerfd))
+			currevent = eventbuffer[i];
+			curconnection = (struct connection *)currevent->ptr;
+			if(((currevent->out_event & EPOLLHUP) || (currevent->out_event & EPOLLERR)) && 
+						(currevent->fd != ptcpuinfo->listenerfd))
 			{
-				removeevent = eventbuffer[i];
+				removeevent = currevent;
 				cheeta_remove_eventfd(cheeta_thandle, removeevent, 0);
 				close(removeevent->fd);
 				if(removeevent->ptr);
@@ -55,37 +71,39 @@ void *vizsla_cpu_eventloop_threadfunc(void *arg)
                 if(removeevent);
                 	free(removeevent);
 			}
-			if(eventbuffer[i]->out_event & CH_EV_READ)  
+			if(currevent->out_event & CH_EV_READ)  
 			{	
-				if(eventbuffer[i]->fd == ptcpuinfo->listenerfd)
+				if(currevent->fd == ptcpuinfo->listenerfd)
 				{
 					int newfd;
+					struct connection *pnewconnection = NULL;
 
 					while((newfd =	accept4(ptcpuinfo->listenerfd, NULL, NULL, SOCK_NONBLOCK)) > 0)
 					{
 						addevent = (struct eventfd *)malloc(sizeof(struct eventfd));
 						addevent->in_event = CH_EV_READ|CH_EV_WRITE;
+						pnewconnection = (struct connection *)malloc(sizeof(struct connection));
 						addevent->fd = newfd;
+						addevent->ptr = pnewconnection;
 						cheeta_add_eventfd(cheeta_thandle, addevent, 0);
-						cheeta_thandle->sessions[newfd-4].remotefd = newfd;
 					}
 				}
 				else {
-					cheeta_thandle->sessions[eventbuffer[i]->fd-4].responsesize = 
-					read(eventbuffer[i]->fd, cheeta_thandle->sessions[eventbuffer[i]->fd-4].buffer, 4092);
-					vizsla_process_http(&(cheeta_thandle->sessions[eventbuffer[i]->fd-4]));	
+					curconnection->responsesize = read(currevent->fd, curconnection->buffer, 4092);
+					vizsla_process_http(curconnection);	
 				}
 			}	
-			if(eventbuffer[i]->out_event & CH_EV_WRITE)
+			if(currevent->out_event & CH_EV_WRITE)
 			{	
-				if((cheeta_thandle->sessions[eventbuffer[i]->fd-4].ready4write) && (cheeta_thandle->sessions[eventbuffer[i]->fd-4].writesize))
+				if((curconnection->ready4write) && (curconnection->writesize))
 				{
 					int writecount = 0;
-					writecount = write(eventbuffer[i]->fd, &(cheeta_thandle->sessions[eventbuffer[i]->fd-4].buffer), cheeta_thandle->sessions[eventbuffer[i]->fd-4].writesize);
+
+					writecount = write(currevent->fd, curconnection->buffer, curconnection->writesize);
 					printf("wrote %d bytes\n", writecount);
-					cheeta_thandle->sessions[eventbuffer[i]->fd-4].writesize -= writecount;	
-					if(!(cheeta_thandle->sessions[eventbuffer[i]->fd-4].writesize))
-						cheeta_thandle->sessions[eventbuffer[i]->fd-4].ready4write = 0;
+					curconnection->writesize -= writecount;	
+					if(!(curconnection->writesize))
+						curconnection->ready4write = 0;
 				}
 			}
 			k--;			
