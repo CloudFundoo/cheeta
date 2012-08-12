@@ -18,7 +18,7 @@ struct cheeta_context {
 #define CH_EV_WRITE	EPOLLOUT
 
 struct cheeta_context *cheeta_event_init(void);
-unsigned int cheeta_event_get(struct cheeta_context *, struct eventfd *(*)[1], unsigned int);
+int cheeta_event_get(struct cheeta_context *, struct eventfd *(**)[1], unsigned int);
 unsigned int cheeta_add_eventfd(struct cheeta_context *, struct eventfd *, unsigned int);
 
 unsigned int cheeta_remove_eventfd(struct cheeta_context *, struct eventfd *, unsigned int);

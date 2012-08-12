@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -16,23 +17,28 @@ struct cheeta_context *cheeta_event_init()
 	return cheeta;
 }
 
-unsigned int cheeta_event_get(struct cheeta_context *context, struct eventfd *(*eventbuffer)[1], unsigned int buffersize) 
+int cheeta_event_get(struct cheeta_context *context, struct eventfd *(**eventbuffer)[1], unsigned int buffersize) 
 {
 	int eventfdcount;
 	struct epoll_event *onevent;
+	struct eventfd *(*tempeventbuffer)[1];
+	
+	if(!context->polledfdscount)
+		return -1;
 	
 	onevent = (struct epoll_event *)malloc(context->polledfdscount * sizeof(struct epoll_event));
 	
 	eventfdcount = epoll_wait(context->epfd, onevent, context->polledfdscount, 0);
-	*eventbuffer[0] = (struct eventfd *)malloc(eventfdcount * sizeof(struct eventfd *));
+	tempeventbuffer = (struct eventfd *(*)[1])malloc(eventfdcount * sizeof(struct eventfd *));
+	*eventbuffer = tempeventbuffer;
 	
 	if(eventfdcount > 0)
 	{	
 		int i = 0;
 		for(;i < eventfdcount; i++)
 		{
-			(*eventbuffer)[i] = (struct eventfd *)(onevent[i].data.ptr);
-			((*eventbuffer)[i])->out_event = onevent[i].events;
+			(*tempeventbuffer)[i] = (struct eventfd *)(onevent[i].data.ptr);
+			((*tempeventbuffer)[i])->out_event = onevent[i].events;
 		}		
 	}
 	free(onevent);

@@ -3,7 +3,7 @@ LDFLAGS=-L./lib
 
 all:
 	make -C lib/ all
-	g++ -o slave slave.cpp $(CFLAGS) $(LDFLAGS) -lcheeta -lpthread
+	g++ -g -o slave slave.cpp $(CFLAGS) $(LDFLAGS) -lcheeta -lpthread
 	g++ -o vizsla vizsla.cpp $(CFLAGS) $(LDFLAGS) -lcheeta -lpthread
 
 clean:

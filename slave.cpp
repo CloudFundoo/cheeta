@@ -27,14 +27,15 @@ void *vizsla_client_event_loop(void * arg)
 	struct tcpu_info *ptcpuinfo;
 	unsigned int treq_per_thread;
 	unsigned int tconcurr_per_thread;
-	int *socketfds[1];
+	int *socketfds;
 	int *currentsocketfd;
 	unsigned int loop = 0;
 	struct cheeta_context *cheeta_thandle = cheeta_event_init();
 	struct sockaddr_in serveraddr;
 	struct eventfd *addevent;
 	struct eventfd *removeevent;
-	struct eventfd *eventbuffer[1];
+	struct eventfd *currevent;
+	struct eventfd *(*eventbuffer)[1];
 	struct connection *connections;
 	char sendbuffer[100] = "I am fucked and you?";
 	char recvbuffer[100];
@@ -44,22 +45,23 @@ void *vizsla_client_event_loop(void * arg)
 	tconcurr_per_thread = ptcpuinfo->tconcurr_req_thread;
 	treq_per_thread = ptcpuinfo->treq_thread; 
 
-	socketfds[1] = (int *)malloc(tconcurr_per_thread * sizeof(int));
+	socketfds = (int *)malloc(tconcurr_per_thread * sizeof(int));
 	loop = tconcurr_per_thread;
 	
-	currentsocketfd = socketfds[1];
+	currentsocketfd = socketfds;
 	while(loop--)
 	{
-		currentsocketfd++;
 		*currentsocketfd = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, 0);
 		
 		serveraddr.sin_family = AF_INET;
+		//serveraddr.sin_addr.s_addr = inet_addr(ptcpuinfo->hostaddr);
+		//serveraddr.sin_port = htons(atoi(ptcpuinfo->hostport));
 		serveraddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 		serveraddr.sin_port = htons(5555);
-
-		
+		printf("Before connect()\n");	
 		if((ret = connect(*currentsocketfd, (struct sockaddr *)&serveraddr, sizeof(sockaddr_in))) != 0)
 		{
+		printf("After connect()\n");	
 			if(errno == EINPROGRESS)
 			{	
 				struct connection *pconnection = NULL;
@@ -73,6 +75,7 @@ void *vizsla_client_event_loop(void * arg)
     			cheeta_add_eventfd(cheeta_thandle, addevent, sizeof(addevent)/sizeof(struct eventfd));
 			}
 		}
+		currentsocketfd++;
 	}
 
 	for(;;)
@@ -85,50 +88,51 @@ void *vizsla_client_event_loop(void * arg)
 		{
 			i = k-1;	
 			k--;	
-
-			if((eventbuffer[i]->out_event & EPOLLHUP) || (eventbuffer[i]->out_event & EPOLLERR))
+			currevent = (*eventbuffer)[i];
+			if((currevent->out_event & EPOLLHUP) || (currevent->out_event & EPOLLERR))
 			{
-				removeevent = eventbuffer[i];
+				removeevent = currevent;
                 cheeta_remove_eventfd(cheeta_thandle, removeevent, 0);
-                close(eventbuffer[i]->fd);
-				if(removeevent->ptr);
-					//free(removeevent->ptr);
-				if(removeevent);
-					//free(removeevent);	
+                close(removeevent->fd);
+				if(removeevent->ptr)
+				{
+					free(removeevent->ptr);
+					removeevent->ptr = NULL;
+				}
+				if(removeevent)
+					free(removeevent);	
+				continue;
 			}
-			if(eventbuffer[i]->out_event & CH_EV_READ)
+			if(currevent->out_event & CH_EV_READ)
 			{
-				read(eventbuffer[i]->fd, (void *)recvbuffer, recvsize);
+				read(currevent->fd, (void *)recvbuffer, recvsize);
 				printf("I got %s\n", recvbuffer);
-				removeevent = eventbuffer[i];
-                cheeta_remove_eventfd(cheeta_thandle, removeevent, 0);
-                close(eventbuffer[i]->fd);
-                if(removeevent->ptr);
-//                    free(removeevent->ptr);
-                if(removeevent);
-  //                  free(removeevent);
+				continue;
 			}
-			else if(eventbuffer[i]->out_event & CH_EV_WRITE)
+			else if(currevent->out_event & CH_EV_WRITE)
 			{
-				if(!((struct connection *)eventbuffer[i]->ptr)->state)
+				if(!((struct connection *)currevent->ptr)->state)
 				{
 					int sock_optval = -1;
 					int sock_optval_len = sizeof(sock_optval);
 					
-					if(!getsockopt(eventbuffer[i]->fd, SOL_SOCKET, SO_ERROR, (void *)&sock_optval, (socklen_t *)&sock_optval_len))
+					if(!getsockopt(currevent->fd, SOL_SOCKET, SO_ERROR, (void *)&sock_optval, (socklen_t *)&sock_optval_len))
 					{
 						if(!sock_optval)
-							((struct connection *)eventbuffer[i]->ptr)->state = CONNECTED;
+							((struct connection *)currevent->ptr)->state = CONNECTED;
 					} 
 				}
 				else
 				{
-					write(eventbuffer[i]->fd, (void *)sendbuffer, strlen(sendbuffer));
+					write(currevent->fd, (void *)sendbuffer, strlen(sendbuffer));
 				}			
+				continue;
 			}
 		}
-		free(eventbuffer[0]);
+		free(eventbuffer);
+		eventbuffer = NULL;
 	}
+	free(socketfds);
 }
 
 int main(int argc, char **argv)
@@ -207,6 +211,8 @@ int main(int argc, char **argv)
         memset(ptcpuinfo, 0, sizeof(struct tcpu_info));
         ptcpuinfo->tconcurr_req_thread = tconcurr_per_thread;
         ptcpuinfo->treq_thread = treq_per_thread;
+		ptcpuinfo->hostaddr = hostaddr;
+		ptcpuinfo->hostport = hostport;
 
         if((ret = pthread_create(&threadid, &thread_attr, vizsla_client_event_loop, ptcpuinfo)) !=0 )
         {

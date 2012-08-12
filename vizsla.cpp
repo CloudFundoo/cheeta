@@ -33,7 +33,7 @@ void vizsla_process_http(struct connection *connection)
 void *vizsla_cpu_eventloop_threadfunc(void *arg)
 {
 	struct tcpu_info *ptcpuinfo;
-	struct eventfd *eventbuffer[1];
+	struct eventfd *(*eventbuffer)[1];
 	struct eventfd *addevent;
 	struct eventfd *removeevent;
 	struct eventfd *currevent;
@@ -57,7 +57,7 @@ void *vizsla_cpu_eventloop_threadfunc(void *arg)
 		{
 			i = k-1;	
 			k--;			
-			currevent = eventbuffer[i];
+			currevent = (*eventbuffer)[i];
 			curconnection = (struct connection *)currevent->ptr;
 			if(((currevent->out_event & EPOLLHUP) || (currevent->out_event & EPOLLERR)) && 
 						(currevent->fd != ptcpuinfo->listenerfd))
