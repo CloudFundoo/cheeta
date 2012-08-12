@@ -109,7 +109,7 @@ void *vizsla_cpu_eventloop_threadfunc(void *arg)
 				continue;
 			}
 		}
-		free(eventbuffer[0]);
+		free(eventbuffer);
 	}
 }
 
