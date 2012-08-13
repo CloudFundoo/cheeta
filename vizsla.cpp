@@ -101,7 +101,6 @@ void *vizsla_cpu_eventloop_threadfunc(void *arg)
 					int writecount = 0;
 
 					writecount = write(currevent->fd, curconnection->buffer, curconnection->writesize);
-					printf("wrote %d bytes\n", writecount);
 					curconnection->writesize -= writecount;	
 					if(!(curconnection->writesize))
 						curconnection->ready4write = 0;

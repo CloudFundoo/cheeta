@@ -54,14 +54,10 @@ void *vizsla_client_event_loop(void * arg)
 		*currentsocketfd = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, 0);
 		
 		serveraddr.sin_family = AF_INET;
-		//serveraddr.sin_addr.s_addr = inet_addr(ptcpuinfo->hostaddr);
-		//serveraddr.sin_port = htons(atoi(ptcpuinfo->hostport));
-		serveraddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-		serveraddr.sin_port = htons(5555);
-		printf("Before connect()\n");	
+		serveraddr.sin_addr.s_addr = inet_addr(ptcpuinfo->hostaddr);
+		serveraddr.sin_port = htons(atoi(ptcpuinfo->hostport));
 		if((ret = connect(*currentsocketfd, (struct sockaddr *)&serveraddr, sizeof(sockaddr_in))) != 0)
 		{
-		printf("After connect()\n");	
 			if(errno == EINPROGRESS)
 			{	
 				struct connection *pconnection = NULL;
@@ -70,7 +66,7 @@ void *vizsla_client_event_loop(void * arg)
 				addevent->fd = *currentsocketfd;				
 				pconnection = (struct connection *)malloc(sizeof(struct connection));	
 				pconnection->state = ON_CONNECT;
-    			addevent->in_event = CH_EV_WRITE|EPOLLET;
+    			addevent->in_event = CH_EV_WRITE|CH_EV_READ;
 				addevent->ptr = pconnection;
     			cheeta_add_eventfd(cheeta_thandle, addevent, sizeof(addevent)/sizeof(struct eventfd));
 			}
