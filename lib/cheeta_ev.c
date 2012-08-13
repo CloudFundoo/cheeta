@@ -66,7 +66,7 @@ unsigned int cheeta_remove_eventfd(struct cheeta_context *context, struct eventf
 	return epoll_ctl(context->epfd, EPOLL_CTL_DEL, event->fd, &event2remove);
 }
 
-inline unsigned int cheeta_modify_eventfd(struct cheeta_context *context, struct eventfd *event, unsigned int size)
+unsigned int cheeta_modify_eventfd(struct cheeta_context *context, struct eventfd *event, unsigned int size)
 {
 	struct epoll_event event2remove;
 	

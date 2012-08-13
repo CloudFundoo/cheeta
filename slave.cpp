@@ -18,6 +18,7 @@ struct connection
 {
 	int state;
 	char buffer[4096];
+	unsigned int ready4write;
 };
 
 
@@ -34,17 +35,24 @@ void *vizsla_client_event_loop(void * arg)
 	struct sockaddr_in serveraddr;
 	struct eventfd *addevent;
 	struct eventfd *removeevent;
+	struct eventfd *modifyevent;
 	struct eventfd *currevent;
 	struct eventfd *(*eventbuffer)[1];
 	struct connection *connections;
+	struct connection *currconnection;
 	char sendbuffer[100] = "I am fucked and you?";
 	char recvbuffer[100];
 	unsigned int recvsize = 100;
+	int wholeloop;
 
 	ptcpuinfo = (struct tcpu_info *)arg;
 	tconcurr_per_thread = ptcpuinfo->tconcurr_req_thread;
 	treq_per_thread = ptcpuinfo->treq_thread; 
-
+	wholeloop = treq_per_thread/tconcurr_per_thread;
+	
+	while(wholeloop--)
+	{
+	printf("Whole loop count %d\n", wholeloop);
 	socketfds = (int *)malloc(tconcurr_per_thread * sizeof(int));
 	loop = tconcurr_per_thread;
 	
@@ -65,8 +73,9 @@ void *vizsla_client_event_loop(void * arg)
 				addevent = (struct eventfd *)malloc(sizeof(struct eventfd));
 				addevent->fd = *currentsocketfd;				
 				pconnection = (struct connection *)malloc(sizeof(struct connection));	
+				pconnection->ready4write = 1;
 				pconnection->state = ON_CONNECT;
-    			addevent->in_event = CH_EV_WRITE|CH_EV_READ;
+    			addevent->in_event = CH_EV_WRITE|CH_EV_READ|EPOLLERR;
 				addevent->ptr = pconnection;
     			cheeta_add_eventfd(cheeta_thandle, addevent, sizeof(addevent)/sizeof(struct eventfd));
 			}
@@ -85,8 +94,10 @@ void *vizsla_client_event_loop(void * arg)
 			i = k-1;	
 			k--;	
 			currevent = (*eventbuffer)[i];
+			currconnection = (struct connection *)currevent->ptr;
 			if((currevent->out_event & EPOLLHUP) || (currevent->out_event & EPOLLERR))
 			{
+				printf("client: ERR event\n");
 				removeevent = currevent;
                 cheeta_remove_eventfd(cheeta_thandle, removeevent, 0);
                 close(removeevent->fd);
@@ -101,8 +112,19 @@ void *vizsla_client_event_loop(void * arg)
 			}
 			if(currevent->out_event & CH_EV_READ)
 			{
+				printf("client: event read()\n");
 				read(currevent->fd, (void *)recvbuffer, recvsize);
 				printf("I got %s\n", recvbuffer);
+				removeevent = currevent;
+                cheeta_remove_eventfd(cheeta_thandle, removeevent, 0);
+                close(removeevent->fd);
+				if(removeevent->ptr)
+				{
+					free(removeevent->ptr);
+					removeevent->ptr = NULL;
+				}
+				if(removeevent)
+					free(removeevent);	
 				continue;
 			}
 			else if(currevent->out_event & CH_EV_WRITE)
@@ -111,6 +133,7 @@ void *vizsla_client_event_loop(void * arg)
 				{
 					int sock_optval = -1;
 					int sock_optval_len = sizeof(sock_optval);
+					printf("client: event connect()\n");
 					
 					if(!getsockopt(currevent->fd, SOL_SOCKET, SO_ERROR, (void *)&sock_optval, (socklen_t *)&sock_optval_len))
 					{
@@ -120,15 +143,26 @@ void *vizsla_client_event_loop(void * arg)
 				}
 				else
 				{
-					write(currevent->fd, (void *)sendbuffer, strlen(sendbuffer));
+					printf("client: event write()\n");
+					if(currconnection->ready4write)
+					{
+						write(currevent->fd, (void *)sendbuffer, strlen(sendbuffer));
+						currconnection->ready4write = 0;
+						modifyevent = currevent;
+						modifyevent->in_event = CH_EV_WRITE|CH_EV_READ|EPOLLET;
+						cheeta_modify_eventfd(cheeta_thandle, modifyevent, 0);
+					}
 				}			
 				continue;
 			}
 		}
 		free(eventbuffer);
 		eventbuffer = NULL;
+		if(!cheeta_thandle->polledfdscount)
+			break;
 	}
 	free(socketfds);
+	}
 }
 
 int main(int argc, char **argv)

@@ -59,8 +59,8 @@ void *vizsla_cpu_eventloop_threadfunc(void *arg)
 			k--;			
 			currevent = (*eventbuffer)[i];
 			curconnection = (struct connection *)currevent->ptr;
-			if(((currevent->out_event & EPOLLHUP) || (currevent->out_event & EPOLLERR)) && 
-						(currevent->fd != ptcpuinfo->listenerfd))
+			if(((currevent->out_event & EPOLLHUP) || (currevent->out_event & EPOLLERR) ||
+				 (currevent->out_event & EPOLLRDHUP)) &&(currevent->fd != ptcpuinfo->listenerfd))
 			{
 				removeevent = currevent;
 				cheeta_remove_eventfd(cheeta_thandle, removeevent, 0);
@@ -81,7 +81,7 @@ void *vizsla_cpu_eventloop_threadfunc(void *arg)
 					while((newfd =	accept4(ptcpuinfo->listenerfd, NULL, NULL, SOCK_NONBLOCK)) > 0)
 					{
 						addevent = (struct eventfd *)malloc(sizeof(struct eventfd));
-						addevent->in_event = CH_EV_READ|CH_EV_WRITE;
+						addevent->in_event = CH_EV_READ|CH_EV_WRITE|EPOLLERR|EPOLLHUP|EPOLLRDHUP;
 						pnewconnection = (struct connection *)malloc(sizeof(struct connection));
 						addevent->fd = newfd;
 						addevent->ptr = pnewconnection;
