@@ -52,6 +52,8 @@ void *vizsla_client_event_loop(void * arg)
 	
 	while(wholeloop--)
 	{
+		int writecount = 0;
+		int readcount = 0;
 	printf("Whole loop count %d\n", wholeloop);
 	socketfds = (int *)malloc(tconcurr_per_thread * sizeof(int));
 	loop = tconcurr_per_thread;
@@ -60,7 +62,6 @@ void *vizsla_client_event_loop(void * arg)
 	while(loop--)
 	{
 		*currentsocketfd = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, 0);
-		
 		serveraddr.sin_family = AF_INET;
 		serveraddr.sin_addr.s_addr = inet_addr(ptcpuinfo->hostaddr);
 		serveraddr.sin_port = htons(atoi(ptcpuinfo->hostport));
@@ -97,7 +98,7 @@ void *vizsla_client_event_loop(void * arg)
 			currconnection = (struct connection *)currevent->ptr;
 			if((currevent->out_event & EPOLLHUP) || (currevent->out_event & EPOLLERR))
 			{
-				printf("client: ERR event\n");
+				//printf("client: ERR event\n");
 				removeevent = currevent;
                 cheeta_remove_eventfd(cheeta_thandle, removeevent, 0);
                 close(removeevent->fd);
@@ -112,9 +113,12 @@ void *vizsla_client_event_loop(void * arg)
 			}
 			if(currevent->out_event & CH_EV_READ)
 			{
-				printf("client: event read()\n");
-				read(currevent->fd, (void *)recvbuffer, recvsize);
-				printf("I got %s\n", recvbuffer);
+				int bytescount;
+				//printf("client: event read()\n");
+				bytescount = read(currevent->fd, (void *)recvbuffer, recvsize);
+				if(bytescount)
+					readcount++;
+				//printf("I got %s\n", recvbuffer);
 				removeevent = currevent;
                 cheeta_remove_eventfd(cheeta_thandle, removeevent, 0);
                 close(removeevent->fd);
@@ -133,7 +137,7 @@ void *vizsla_client_event_loop(void * arg)
 				{
 					int sock_optval = -1;
 					int sock_optval_len = sizeof(sock_optval);
-					printf("client: event connect()\n");
+					//printf("client: event connect()\n");
 					
 					if(!getsockopt(currevent->fd, SOL_SOCKET, SO_ERROR, (void *)&sock_optval, (socklen_t *)&sock_optval_len))
 					{
@@ -143,10 +147,11 @@ void *vizsla_client_event_loop(void * arg)
 				}
 				else
 				{
-					printf("client: event write()\n");
+					//printf("client: event write()\n");
 					if(currconnection->ready4write)
 					{
 						write(currevent->fd, (void *)sendbuffer, strlen(sendbuffer));
+						writecount++;
 						currconnection->ready4write = 0;
 						modifyevent = currevent;
 						modifyevent->in_event = CH_EV_WRITE|CH_EV_READ|EPOLLET;
@@ -162,6 +167,7 @@ void *vizsla_client_event_loop(void * arg)
 			break;
 	}
 	free(socketfds);
+	printf("Write count %d\t Read Count %d\n", writecount, readcount);
 	}
 }
 

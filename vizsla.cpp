@@ -90,6 +90,7 @@ void *vizsla_cpu_eventloop_threadfunc(void *arg)
 				}
 				else {
 					curconnection->responsesize = read(currevent->fd, curconnection->buffer, 4092);
+					
 					vizsla_process_http(curconnection);	
 				}
 				continue;
