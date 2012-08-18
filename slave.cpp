@@ -14,10 +14,15 @@
 #define ON_CONNECT	0
 #define CONNECTED	1
 
+#define CH_EV_LEVEL	0
+#define CH_EV_EDGE	1
+
 struct connection
 {
 	int state;
+	int mode;
 	unsigned int ready4write;
+	unsigned int data2write;
 	unsigned int bytes2write;
 	char sendbuffer[100]";
 	unsigned int ready4read;
@@ -78,10 +83,11 @@ void *vizsla_client_event_loop(void * arg)
 				addevent->fd = *currentsocketfd;				
 				pconnection = (struct connection *)malloc(sizeof(struct connection));	
 				pconnection->ready4write = 1;
+				pconnection->mode = CH_EV_LEVEL;
 				pconnection->state = ON_CONNECT;
-    			addevent->in_event = CH_EV_WRITE|CH_EV_READ|EPOLLERR;
+    				addevent->in_event = CH_EV_WRITE|CH_EV_READ|EPOLLERR;
 				addevent->ptr = pconnection;
-    			cheeta_add_eventfd(cheeta_thandle, addevent, sizeof(addevent)/sizeof(struct eventfd));
+    				cheeta_add_eventfd(cheeta_thandle, addevent, sizeof(addevent)/sizeof(struct eventfd));
 			}
 		}
 		currentsocketfd++;
@@ -133,7 +139,7 @@ void *vizsla_client_event_loop(void * arg)
 			}
 			else if(currevent->out_event & CH_EV_WRITE)
 			{
-				if(!((struct connection *)currevent->ptr)->state)
+				if(((struct connection *)currevent->ptr)->state == ON_CONNECT)
 				{
 					int sock_optval = -1;
 					int sock_optval_len = sizeof(sock_optval);
@@ -155,10 +161,9 @@ void *vizsla_client_event_loop(void * arg)
 						if(byteswritten>0)
 						{
 							writecount++;
-							currconnection->ready4write = 0;
-							modifyevent = currevent;
-							modifyevent->in_event = CH_EV_WRITE|CH_EV_READ|EPOLLET;
-							cheeta_modify_eventfd(cheeta_thandle, modifyevent, 0);
+							currconnection->bytes2write -= byteswritten;
+							if(!currconnection->bytes2write)
+								currconnection->ready4write = 0;
 						}
 						else if(!((errno == EAGAIN) || (errno == EWOULDBLOCK)))
 						{
@@ -172,6 +177,16 @@ void *vizsla_client_event_loop(void * arg)
 			                                }
                         			        if(removeevent)
 			                                        free(removeevent);
+						}
+					}
+					else
+					{
+						if(currconnection->mode != CH_EV_EDGE)
+						{	
+							modifyevent = currevent;
+							modifyevent->in_event = CH_EV_WRITE|CH_EV_READ|EPOLLET;
+							cheeta_modify_eventfd(cheeta_thandle, modifyevent, 0);
+							currconnection->mode = CH_EV_EDGE;
 						}
 					}
 				}			
