@@ -24,9 +24,12 @@ struct connection
 	unsigned int ready4write;
 	unsigned int data2write;
 	unsigned int bytes2write;
+	char *readptr;
 	char sendbuffer[100]";
 	unsigned int ready4read;
+	unsigned int ready4read;
 	unsigned int bytesread;
+	char *writeptr;
 	char recvbuffer[100];
 };
 
@@ -78,11 +81,17 @@ void *vizsla_client_event_loop(void * arg)
 			if(errno == EINPROGRESS)
 			{	
 				struct connection *pconnection = NULL;
+				char *pmessage = "I am fucked and you?";
 
 				addevent = (struct eventfd *)malloc(sizeof(struct eventfd));
 				addevent->fd = *currentsocketfd;				
 				pconnection = (struct connection *)malloc(sizeof(struct connection));	
 				pconnection->ready4write = 1;
+				pconnection->ready4read = 0;
+				pconnection->writeptr = pconnection->sendbuffer;
+				pconnection->readptr = pconnection->recvbuffer;
+				strcpy(pconnection->sendbuffer, pmessage);
+				pconnection->bytes2write = strlen(pmessage) + 1;
 				pconnection->mode = CH_EV_LEVEL;
 				pconnection->state = ON_CONNECT;
     				addevent->in_event = CH_EV_WRITE|CH_EV_READ|EPOLLERR;
@@ -121,20 +130,25 @@ void *vizsla_client_event_loop(void * arg)
 			}
 			if(currevent->out_event & CH_EV_READ)
 			{
-				int bytescount;
-				bytescount = read(currevent->fd, (void *)recvbuffer, recvsize);
-				if(bytescount)
-					readcount++;
-				removeevent = currevent;
-	        	        cheeta_remove_eventfd(cheeta_thandle, removeevent, 0);
-        	        	close(removeevent->fd);
-				if(removeevent->ptr)
+				if(currconnection->ready4read)
 				{
-					free(removeevent->ptr);
-					removeevent->ptr = NULL;
+					int bytescount;
+
+					bytescount = read(currevent->fd, (void *)recvbuffer, recvsize);
+					
+					if(bytescount)
+						readcount++;
+					removeevent = currevent;
+		        	        cheeta_remove_eventfd(cheeta_thandle, removeevent, 0);
+        		        	close(removeevent->fd);
+					if(removeevent->ptr)
+					{
+						free(removeevent->ptr);
+						removeevent->ptr = NULL;
+					}
+					if(removeevent)
+						free(removeevent);	
 				}
-				if(removeevent)
-					free(removeevent);	
 				continue;
 			}
 			else if(currevent->out_event & CH_EV_WRITE)
@@ -156,14 +170,18 @@ void *vizsla_client_event_loop(void * arg)
 					{
 						int byteswritten = 0;
 
-						byteswritten = write(currevent->fd, (void *)sendbuffer, strlen(sendbuffer));
+						byteswritten = write(currevent->fd, (void *)currconnection->writeptr, currconnection->bytes2write);
 						
 						if(byteswritten>0)
 						{
 							writecount++;
 							currconnection->bytes2write -= byteswritten;
-							if(!currconnection->bytes2write)
+							currconnection->writeptr += byteswritten;
+							if(currconnection->bytes2write > 0)
+							{
 								currconnection->ready4write = 0;
+								currconnection->ready4read = 1;
+							}
 						}
 						else if(!((errno == EAGAIN) || (errno == EWOULDBLOCK)))
 						{
@@ -184,7 +202,7 @@ void *vizsla_client_event_loop(void * arg)
 						if(currconnection->mode != CH_EV_EDGE)
 						{	
 							modifyevent = currevent;
-							modifyevent->in_event = CH_EV_WRITE|CH_EV_READ|EPOLLET;
+							modifyevent->in_event = CH_EV_READ|EPOLLERR;
 							cheeta_modify_eventfd(cheeta_thandle, modifyevent, 0);
 							currconnection->mode = CH_EV_EDGE;
 						}
